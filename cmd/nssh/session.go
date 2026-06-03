@@ -31,6 +31,7 @@ func nsshMain() {
 	args := os.Args[1:]
 	forceSSH := false
 	forceMosh := false
+	forceET := false
 	collisionFlag := "" // "join" | "replace" | "new" | ""
 parse:
 	for len(args) > 0 {
@@ -39,6 +40,8 @@ parse:
 			forceSSH = true
 		case "--mosh":
 			forceMosh = true
+		case "--et":
+			forceET = true
 		case "--join", "--replace", "--new":
 			collisionFlag = strings.TrimPrefix(args[0], "--")
 		case "-h", "--help":
@@ -48,9 +51,24 @@ parse:
 		}
 		args = args[1:]
 	}
-	if forceSSH && forceMosh {
-		fmt.Fprintln(os.Stderr, "nssh: --ssh and --mosh are mutually exclusive")
+	forced := 0
+	for _, f := range []bool{forceSSH, forceMosh, forceET} {
+		if f {
+			forced++
+		}
+	}
+	if forced > 1 {
+		fmt.Fprintln(os.Stderr, "nssh: --ssh, --mosh, and --et are mutually exclusive")
 		os.Exit(1)
+	}
+	forceTransport := ""
+	switch {
+	case forceSSH:
+		forceTransport = "ssh"
+	case forceMosh:
+		forceTransport = "mosh"
+	case forceET:
+		forceTransport = "et"
 	}
 	if len(args) < 1 {
 		usage()
@@ -136,14 +154,14 @@ parse:
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	session, useMosh := selectTransport(forceSSH, forceMosh, sshArgs, sshTarget)
+	session, transport := selectTransport(forceTransport, sshArgs, sshTarget)
 	sessErr := runSession(session, sigs)
 	resetTerminal()
 	exitCode := 0
 	if exitErr, ok := sessErr.(*exec.ExitError); ok {
 		exitCode = exitErr.ExitCode()
 	}
-	logEvent(LogEvent{Event: "session-end", Exit: &exitCode, Mosh: &useMosh})
+	logEvent(LogEvent{Event: "session-end", Exit: &exitCode, Transport: transport})
 	unregisterSession(sessionFile) // defers don't fire under os.Exit
 	if exitCode != 0 {
 		os.Exit(exitCode)
@@ -263,36 +281,67 @@ func resetTerminal() {
 	)
 }
 
-// remoteHasMosh checks if mosh-server is on the remote's PATH. Used to
-// auto-select transport when neither --ssh nor --mosh is given.
-func remoteHasMosh(sshTarget string) bool {
-	cmd := exec.Command("ssh", "-o", "BatchMode=yes", sshTarget, "command -v mosh-server >/dev/null 2>&1")
-	return cmd.Run() == nil
+// remoteHasCommand reports whether `cmd` is on the remote's PATH. Used to
+// auto-select a transport (mosh-server / etserver) when none is forced.
+func remoteHasCommand(sshTarget, cmd string) bool {
+	c := exec.Command("ssh", "-o", "BatchMode=yes", sshTarget,
+		fmt.Sprintf("command -v %s >/dev/null 2>&1", cmd))
+	return c.Run() == nil
 }
 
-// selectTransport picks ssh or mosh based on the user's flags and (if
-// neither is forced) whether mosh is installed locally and on the remote.
-// Returns the configured exec.Cmd plus a useMosh flag for downstream
-// logging. When mosh is selected we force a UTF-8 locale because mosh's
-// terminal emulation breaks under POSIX/C locales on minimal images.
-func selectTransport(forceSSH, forceMosh bool, sshArgs []string, sshTarget string) (*exec.Cmd, bool) {
-	useMosh := false
+// pickTransport decides which interactive transport to use. force is one of
+// "" (auto), "ssh", "mosh", "et"; a forced choice is honored regardless of
+// detected availability — the user knows their setup. When auto-selecting,
+// preference is et > mosh > ssh, and a transport only wins if both its local
+// and remote halves are present.
+func pickTransport(force string, localMosh, remoteMosh, localET, remoteET bool) string {
+	switch force {
+	case "ssh", "mosh", "et":
+		return force
+	}
 	switch {
-	case forceSSH:
-	case forceMosh:
-		useMosh = true
+	case localET && remoteET:
+		return "et"
+	case localMosh && remoteMosh:
+		return "mosh"
 	default:
-		if _, err := exec.LookPath("mosh"); err == nil && remoteHasMosh(sshTarget) {
-			useMosh = true
+		return "ssh"
+	}
+}
+
+// selectTransport resolves the transport (honoring force, else probing local
+// binaries and the remote PATH), builds the interactive command, and returns
+// it alongside the chosen transport name for downstream logging. Remote probes
+// are skipped entirely when a choice is forced or the local binary is absent.
+// When mosh is selected we force a UTF-8 locale because mosh's terminal
+// emulation breaks under POSIX/C locales on minimal images.
+func selectTransport(force string, sshArgs []string, sshTarget string) (*exec.Cmd, string) {
+	var localMosh, remoteMosh, localET, remoteET bool
+	if force == "" {
+		_, errET := exec.LookPath("et")
+		localET = errET == nil
+		_, errMosh := exec.LookPath("mosh")
+		localMosh = errMosh == nil
+		if localET {
+			remoteET = remoteHasCommand(sshTarget, "etserver")
+		}
+		if localMosh {
+			remoteMosh = remoteHasCommand(sshTarget, "mosh-server")
 		}
 	}
-	if useMosh {
+
+	switch pickTransport(force, localMosh, remoteMosh, localET, remoteET) {
+	case "et":
+		fmt.Fprintln(os.Stderr, "nssh: using et for interactive session")
+		return exec.Command("et", sshTarget), "et"
+	case "mosh":
 		fmt.Fprintln(os.Stderr, "nssh: using mosh for interactive session")
 		cmd := exec.Command("mosh", sshTarget)
 		cmd.Env = append(os.Environ(), "LC_ALL=C.UTF-8", "LANG=C.UTF-8")
-		return cmd, true
+		return cmd, "mosh"
+	default:
+		return exec.Command("ssh", sshArgs...), "ssh"
 	}
-	return exec.Command("ssh", sshArgs...), false
 }
 
 // deadlineConn wraps net.Conn to push the read deadline forward on every Read.

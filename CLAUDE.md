@@ -53,14 +53,19 @@ only the last week.
 
 | argv[0] | Mode | Description |
 |---------|------|-------------|
-| `nssh` (or anything else) | session | SSH/mosh wrapper + ntfy subscriber |
+| `nssh` (or anything else) | session | SSH/mosh/et wrapper + ntfy subscriber |
 | `xclip` | shim | Clipboard bridge via ntfy |
 | `wl-copy` / `wl-paste` | shim | Wayland clipboard bridge via ntfy |
 | `xdg-open` / `sensible-browser` | shim | URL forwarding via ntfy |
 
 ### Session mode (local)
 
-- Wraps `ssh` or `mosh` with automatic transport selection
+- Wraps `ssh`, `mosh`, or `et` (Eternal Terminal) with automatic transport
+  selection: when no `--ssh`/`--mosh`/`--et` flag is given, prefers `et`
+  (local `et` + remote `etserver`), then `mosh` (local `mosh` + remote
+  `mosh-server`), else falls back to plain `ssh`. Detection is a binary
+  presence check only; if a forced/auto transport's daemon is down, that
+  transport's own launch fails and the user reruns with another flag.
 - Generates a random topic (or reads a pinned one from config), writes it to
   the remote's `~/.config/nssh/session`, subscribes to ntfy in a background goroutine
 - Dispatches incoming messages by `kind`:

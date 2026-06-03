@@ -25,8 +25,7 @@ func TestLogEventOmitsZeros(t *testing.T) {
 
 func TestLogEventExitZeroPreserved(t *testing.T) {
 	zero := 0
-	yes := true
-	e := LogEvent{Event: "session-end", Exit: &zero, Mosh: &yes}
+	e := LogEvent{Event: "session-end", Exit: &zero, Transport: "et"}
 	data, err := json.Marshal(e)
 	if err != nil {
 		t.Fatal(err)
@@ -35,25 +34,24 @@ func TestLogEventExitZeroPreserved(t *testing.T) {
 	if !strings.Contains(got, `"exit":0`) {
 		t.Errorf("exit=0 was dropped: %s", got)
 	}
-	if !strings.Contains(got, `"mosh":true`) {
-		t.Errorf("mosh=true missing: %s", got)
+	if !strings.Contains(got, `"transport":"et"`) {
+		t.Errorf("transport=et missing: %s", got)
 	}
 }
 
 func TestLogEventRoundTrip(t *testing.T) {
 	exit := 42
-	mosh := false
 	want := LogEvent{
-		TS:      "2026-05-05T07:43:42Z",
-		Event:   "session-end",
-		Side:    "session",
-		PID:     12345,
-		Target:  "devbox",
-		Server:  "https://ntfy.sh",
-		Topic:   "nssh_abc",
-		Version: "v0.1.0",
-		Exit:    &exit,
-		Mosh:    &mosh,
+		TS:        "2026-05-05T07:43:42Z",
+		Event:     "session-end",
+		Side:      "session",
+		PID:       12345,
+		Target:    "devbox",
+		Server:    "https://ntfy.sh",
+		Topic:     "nssh_abc",
+		Version:   "v0.1.0",
+		Exit:      &exit,
+		Transport: "mosh",
 	}
 	data, err := json.Marshal(want)
 	if err != nil {
@@ -69,8 +67,8 @@ func TestLogEventRoundTrip(t *testing.T) {
 	if got.Exit == nil || *got.Exit != exit {
 		t.Errorf("Exit not preserved: %v", got.Exit)
 	}
-	if got.Mosh == nil || *got.Mosh != mosh {
-		t.Errorf("Mosh not preserved: %v", got.Mosh)
+	if got.Transport != want.Transport {
+		t.Errorf("Transport not preserved: %q", got.Transport)
 	}
 }
 

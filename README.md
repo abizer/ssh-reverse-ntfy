@@ -73,10 +73,11 @@ For nix/home-manager managed hosts, add the flake input and add a single activat
 ## Usage
 
 ```bash
-# Connect (auto-selects mosh if both sides have it)
+# Connect (auto-selects et > mosh > ssh based on what both sides have)
 nssh devbox
 nssh --ssh devbox        # force plain SSH
 nssh --mosh devbox       # force mosh
+nssh --et devbox         # force Eternal Terminal
 
 # Inside the remote session:
 
@@ -151,7 +152,7 @@ The `NSSH_NTFY_BASE` environment variable overrides the server.
 - **Local:** macOS, Go 1.25+, [`pngpaste`](https://github.com/jcsalterego/pngpaste) (`brew install pngpaste`)
 - **Remote:** Linux with `~/.local/bin` in PATH. Zero runtime deps.
 - **Optional:** Self-hosted [ntfy](https://docs.ntfy.sh/install/) for privacy (public ntfy.sh works out of the box).
-- **Optional:** `mosh` on both ends for session roaming.
+- **Optional:** `mosh` (both ends) or [Eternal Terminal](https://eternalterminal.dev/) (`et` locally + `etserver` on the remote) for session roaming. When available, `et` is auto-selected over `mosh` over plain `ssh`.
 
 ## Further reading
 
