@@ -91,9 +91,9 @@ type LogEvent struct {
     Server  string `json:"server,omitempty"`
     Topic   string `json:"topic,omitempty"`
     Version string `json:"version,omitempty"`
-    Exit    *int   `json:"exit,omitempty"`
-    Mosh    *bool  `json:"mosh,omitempty"`
-    Joined  int    `json:"joined,omitempty"`
+    Exit      *int   `json:"exit,omitempty"`
+    Transport string `json:"transport,omitempty"`
+    Joined    int    `json:"joined,omitempty"`
 
     // Shim invocation.
     Persona string   `json:"persona,omitempty"`
@@ -115,7 +115,7 @@ type LogEvent struct {
 |-------|------------|--------|---------|
 | `session-open` | local (during `prepareRemote`, written to remote log via SSH heredoc) | `server`, `topic`, `target`, `version` | Local nssh announces itself to the remote at session start. Side is `session-init`. |
 | `session-start` | local | `target`, `host`, `server`, `joined` | Local subscriber is starting. `joined` is the PID of the existing nssh whose topic we adopted, omitted on a fresh connect. |
-| `session-end` | local | `exit`, `mosh` | Local interactive session ended. `exit` is `0` on success; `mosh` records which transport was used. |
+| `session-end` | local | `exit`, `transport` | Local interactive session ended. `exit` is `0` on success; `transport` is `ssh`, `mosh`, or `et` — which transport carried the session. |
 | `subscribe-up` | local | `reconnect`, `gap`, `since` | ntfy `/json` long-poll connected. `reconnect=true` plus `gap` is set after a prior `subscribe-down`; `since` echoes the ntfy message id resumed from. |
 | `subscribe-down` | local | `err` | ntfy `/json` long-poll dropped (network, timeout, EOF). Followed by a reconnect attempt. |
 | `msg-send` | either | `kind`, `mime`, `id`, `url`, `size` | Envelope published to the topic. |
@@ -132,11 +132,12 @@ type LogEvent struct {
 attachments, it's the attachment's reported size; for inline payloads,
 it's the decoded base64 length.
 
-`Exit` and `Mosh` are pointer-typed because they need to record an
-explicit zero/false meaning — `exit=0` (success) and `mosh=false`
-(used ssh) are real values that should appear in the log, not be
-silently dropped by `omitempty`. All other zero-valued fields *are*
-dropped.
+`Exit` is pointer-typed because it needs to record an explicit zero —
+`exit=0` (success) is a real value that should appear in the log, not be
+silently dropped by `omitempty`. `Transport` is a plain string: its
+empty value means "unset" and is correctly dropped, while a real
+transport (`ssh`/`mosh`/`et`) is always non-empty. All other zero-valued
+fields *are* dropped.
 
 ## Config precedence
 

@@ -13,8 +13,8 @@ import (
 // LogEvent is the on-disk schema for each JSONL log line. Both the writer
 // (logEvent below) and the reader (status.go::formatEvent) marshal against
 // this type, so renaming or adding a field is type-checked instead of
-// grep-and-pray. Exit and Mosh are pointers so callers can record an
-// explicit zero/false without omitempty dropping the field.
+// grep-and-pray. Exit is a pointer so callers can record an explicit zero
+// (exit=0, success) without omitempty dropping the field.
 type LogEvent struct {
 	TS    string `json:"ts"`
 	Event string `json:"event"`
@@ -29,14 +29,14 @@ type LogEvent struct {
 	Size int    `json:"size,omitempty"`
 
 	// Session lifecycle.
-	Target  string `json:"target,omitempty"`
-	Host    string `json:"host,omitempty"`
-	Server  string `json:"server,omitempty"`
-	Topic   string `json:"topic,omitempty"`
-	Version string `json:"version,omitempty"`
-	Exit    *int   `json:"exit,omitempty"`
-	Mosh    *bool  `json:"mosh,omitempty"`
-	Joined  int    `json:"joined,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Host      string `json:"host,omitempty"`
+	Server    string `json:"server,omitempty"`
+	Topic     string `json:"topic,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Exit      *int   `json:"exit,omitempty"`
+	Transport string `json:"transport,omitempty"`
+	Joined    int    `json:"joined,omitempty"`
 
 	// Shim invocation.
 	Persona string   `json:"persona,omitempty"`

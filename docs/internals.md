@@ -45,6 +45,24 @@ user who wants a stable topic can pin it in `config.toml`; any password
 auth on top is delegated to ntfy's own ACL config (we don't reimplement
 it).
 
+### Transport selection (ssh / mosh / et)
+
+The interactive shell can ride `ssh`, `mosh`, or `et` (Eternal Terminal),
+chosen in `selectTransport` (`session.go`). With no `--ssh`/`--mosh`/`--et`
+flag, auto-selection prefers `et` (local `et` + remote `etserver`), then
+`mosh` (local `mosh` + remote `mosh-server`), else `ssh`. Detection is a
+binary-presence check only (`command -v` over `ssh -o BatchMode=yes`); the
+pure decision lives in `pickTransport` and is unit-tested. A daemon that's
+installed but not listening isn't caught here — the transport's own launch
+fails and the user reruns with another flag.
+
+Note that `et` *does* support port forwarding, unlike mosh. nssh still
+routes the clipboard/URL bridge over ntfy regardless of transport, so the
+bridge's behavior is identical no matter how the shell is carried — the
+remote shims never have to know which transport is in play. Like the mosh
+path, the `et` launch passes only the host target (`et` resolves it via
+`~/.ssh/config`); extra ssh flags are not forwarded.
+
 ## Why dispatch on argv[0]
 
 Tools like Claude Code, `gh auth login`, and `gcloud auth login` call
@@ -203,8 +221,8 @@ Browser GETs http://localhost:8585/cb?code=...
 Notes on this flow:
 
 - We use a fresh `ssh -W` per callback. No `ControlMaster`, no socket
-  files. This makes it work whether the outer session is ssh or mosh
-  — `ssh -W` is its own connection. The user authenticates once when
+  files. This makes it work whether the outer session is ssh, mosh, or
+  et — `ssh -W` is its own connection. The user authenticates once when
   the session starts (or relies on a key); subsequent `ssh -W` calls
   for OAuth callbacks reuse the same auth.
 - `ln.Accept()` has a 5-minute deadline (`oauthAcceptTimeout` in

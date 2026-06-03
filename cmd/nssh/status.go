@@ -342,8 +342,8 @@ func formatEvent(raw, label string) string {
 	if e.Mime != "" {
 		fmt.Fprintf(&sb, " mime=%s", e.Mime)
 	}
-	if e.Mosh != nil {
-		fmt.Fprintf(&sb, " mosh=%v", *e.Mosh)
+	if e.Transport != "" {
+		fmt.Fprintf(&sb, " transport=%s", e.Transport)
 	}
 	if e.Persona != "" {
 		fmt.Fprintf(&sb, " persona=%s", e.Persona)

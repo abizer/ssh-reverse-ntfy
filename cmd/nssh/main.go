@@ -14,7 +14,7 @@ var buildVersion string
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
-	fmt.Fprintln(os.Stderr, "  nssh [--ssh|--mosh] [--join|--replace|--new] <host> [ssh args...]")
+	fmt.Fprintln(os.Stderr, "  nssh [--ssh|--mosh|--et] [--join|--replace|--new] <host> [ssh args...]")
 	fmt.Fprintln(os.Stderr, "                                              open a session")
 	fmt.Fprintln(os.Stderr, "  nssh infect [--force] <host>               install on a remote host")
 	fmt.Fprintln(os.Stderr, "  nssh infect [--force] self                 symlink personas on this machine")
